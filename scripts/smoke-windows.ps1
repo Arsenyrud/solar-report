@@ -19,7 +19,7 @@ public static class ReportWindow
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr wParam, string lParam);
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam);
 
-    public static IntPtr Find(IntPtr parent, string classPrefix, string caption)
+    public static IntPtr Find(IntPtr parent, string classFragment, string caption)
     {
         IntPtr found = IntPtr.Zero;
         EnumChildWindows(parent, (handle, parameter) =>
@@ -28,7 +28,7 @@ public static class ReportWindow
             var text = new StringBuilder(256);
             GetClassName(handle, type, type.Capacity);
             GetWindowText(handle, text, text.Capacity);
-            if (IsWindowVisible(handle) && type.ToString().StartsWith(classPrefix, StringComparison.Ordinal)
+            if (IsWindowVisible(handle) && type.ToString().Contains(classFragment, StringComparison.OrdinalIgnoreCase)
                 && (caption == null || text.ToString() == caption))
             {
                 found = handle;
@@ -37,6 +37,21 @@ public static class ReportWindow
             return true;
         }, IntPtr.Zero);
         return found;
+    }
+
+    public static string Describe(IntPtr parent)
+    {
+        var output = new StringBuilder();
+        EnumChildWindows(parent, (handle, parameter) =>
+        {
+            var type = new StringBuilder(256);
+            var text = new StringBuilder(512);
+            GetClassName(handle, type, type.Capacity);
+            GetWindowText(handle, text, text.Capacity);
+            output.AppendLine(type + " | " + IsWindowVisible(handle) + " | " + text);
+            return true;
+        }, IntPtr.Zero);
+        return output.ToString();
     }
 
     public static void SetText(IntPtr handle, string text) => SendMessage(handle, 0x000C, IntPtr.Zero, text);
@@ -61,8 +76,8 @@ try {
     if ($process.MainWindowHandle -eq 0) {
         throw "Не найдено окно работающего процесса, PID $($process.Id), сеанс $($process.SessionId)"
     }
-    $area = [ReportWindow]::Find($process.MainWindowHandle, "WindowsForms10.EDIT", $null)
-    $button = [ReportWindow]::Find($process.MainWindowHandle, "WindowsForms10.BUTTON", "Сформировать отчет")
+    $area = [ReportWindow]::Find($process.MainWindowHandle, "EDIT", $null)
+    $button = [ReportWindow]::Find($process.MainWindowHandle, "", "Сформировать отчет")
     if ($area -eq 0 -or $button -eq 0) { throw "Не найдены поле площади или кнопка расчета" }
     [ReportWindow]::SetText($area, "2,341")
     [ReportWindow]::Click($button)
@@ -79,6 +94,11 @@ try {
     }
     Write-Host "Windows: запуск окна, ввод площади и создание XLS проверены"
 } catch {
+    $process.Refresh()
+    if (-not $process.HasExited -and $process.MainWindowHandle -ne 0) {
+        Write-Host "Окно: $($process.MainWindowTitle)"
+        Write-Host ([ReportWindow]::Describe($process.MainWindowHandle))
+    }
     if (Test-Path $startupError) { Get-Content $startupError }
     if (Test-Path $startupOutput) { Get-Content $startupOutput }
     Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $started } -ErrorAction SilentlyContinue |
