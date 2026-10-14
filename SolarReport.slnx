@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SolarReport.Cli/SolarReport.Cli.csproj" />
+    <Project Path="src/SolarReport.Core/SolarReport.Core.csproj" />
+    <Project Path="src/SolarReport.Desktop/SolarReport.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SolarReport.Tests/SolarReport.Tests.csproj" />
+  </Folder>
+</Solution>

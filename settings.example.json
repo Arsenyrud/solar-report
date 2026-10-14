@@ -1,0 +1,8 @@
+{
+  "InputPath": "inputs/measurements.txt",
+  "OutputPath": "reports/result.xls",
+  "TemplatePath": null,
+  "ReferenceCurrentDensity": null,
+  "DarkInputPath": null,
+  "SintonInputPath": null
+}
