@@ -14,7 +14,7 @@ public static class ReportWindow
     private delegate bool Callback(IntPtr handle, IntPtr parameter);
     [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr parent, Callback callback, IntPtr parameter);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr handle, StringBuilder name, int length);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr handle, StringBuilder text, int length);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr wParam, StringBuilder lParam);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr handle);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr wParam, string lParam);
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam);
@@ -27,7 +27,7 @@ public static class ReportWindow
             var type = new StringBuilder(256);
             var text = new StringBuilder(256);
             GetClassName(handle, type, type.Capacity);
-            GetWindowText(handle, text, text.Capacity);
+            SendMessage(handle, 0x000D, (IntPtr)text.Capacity, text);
             if (IsWindowVisible(handle) && type.ToString().Contains(classFragment, StringComparison.OrdinalIgnoreCase)
                 && (caption == null || text.ToString() == caption))
             {
@@ -47,7 +47,7 @@ public static class ReportWindow
             var type = new StringBuilder(256);
             var text = new StringBuilder(512);
             GetClassName(handle, type, type.Capacity);
-            GetWindowText(handle, text, text.Capacity);
+            SendMessage(handle, 0x000D, (IntPtr)text.Capacity, text);
             output.AppendLine(type + " | " + IsWindowVisible(handle) + " | " + text);
             return true;
         }, IntPtr.Zero);
