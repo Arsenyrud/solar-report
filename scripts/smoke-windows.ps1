@@ -45,11 +45,22 @@ public static class ReportWindow
 '@
 
 if (Test-Path $result) { Remove-Item $result }
-$process = Start-Process $application -PassThru
+$started = Get-Date
+$startupOutput = Join-Path $root "artifacts/windows-startup.stdout.txt"
+$startupError = Join-Path $root "artifacts/windows-startup.stderr.txt"
+$process = Start-Process $application -WorkingDirectory $applicationDirectory -PassThru -RedirectStandardOutput $startupOutput -RedirectStandardError $startupError
 try {
-    if (-not $process.WaitForInputIdle(20000)) { throw "Окно программы не открылось" }
-    $process.Refresh()
-    if ($process.HasExited -or $process.MainWindowHandle -eq 0) { throw "Программа завершилась до открытия окна" }
+    [void]$process.WaitForInputIdle(20000)
+    $windowDeadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        $process.Refresh()
+        if ($process.HasExited) { throw "Программа завершилась до открытия окна, код $($process.ExitCode)" }
+        if ($process.MainWindowHandle -ne 0) { break }
+        Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $windowDeadline)
+    if ($process.MainWindowHandle -eq 0) {
+        throw "Не найдено окно работающего процесса, PID $($process.Id), сеанс $($process.SessionId)"
+    }
     $area = [ReportWindow]::Find($process.MainWindowHandle, "WindowsForms10.EDIT", $null)
     $button = [ReportWindow]::Find($process.MainWindowHandle, "WindowsForms10.BUTTON", "Сформировать отчет")
     if ($area -eq 0 -or $button -eq 0) { throw "Не найдены поле площади или кнопка расчета" }
@@ -67,6 +78,13 @@ try {
         throw "Результат не является файлом XLS"
     }
     Write-Host "Windows: запуск окна, ввод площади и создание XLS проверены"
+} catch {
+    if (Test-Path $startupError) { Get-Content $startupError }
+    if (Test-Path $startupOutput) { Get-Content $startupOutput }
+    Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $started } -ErrorAction SilentlyContinue |
+        Where-Object { $_.Message -like "*SolarReport*" } |
+        Select-Object TimeCreated, ProviderName, Message | Format-List
+    throw
 } finally {
     if (-not $process.HasExited) {
         [void]$process.CloseMainWindow()
